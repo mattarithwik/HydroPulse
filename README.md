@@ -8,6 +8,8 @@ The repository currently provides the runnable vertical slice and the contracts 
 
 Prerequisites are Docker Desktop and Python 3.12 or newer. This host is approved to use Python 3.14. Docker should have no more than 12 GB allocated.
 
+On macOS systems where Documents is synchronized with iCloud Drive, bulk acquisition data is kept in `data.nosync/`. A local `data` symlink preserves application paths while the `.nosync` suffix prevents iCloud Drive from uploading the dataset.
+
 ```bash
 cp .env.example .env
 make bootstrap

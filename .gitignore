@@ -5,7 +5,8 @@ __pycache__/
 .mypy_cache/
 *.pyc
 .env
-data/
+/data
+data.nosync/
 artifacts/
 backups/
 frontend/node_modules/
