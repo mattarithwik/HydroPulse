@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed replay backup restore
+.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit replay backup restore
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -21,6 +21,12 @@ lint: ## Run Python lint checks
 	python -m ruff check src tests
 seed: ## Add explicitly synthetic UI-development observations
 	python -m hydropulse.cli seed-demo
+stage1-live: ## Archive current USGS and NWPS payloads for all targets
+	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 live
+stage1-backfill: ## Resume the native USGS backfill through the latest complete UTC day
+	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 backfill-usgs --start 2007-10-01 --end $$(date -u -v-1d +%Y-%m-%d) --concurrency 4
+stage1-audit: ## Build the current coverage and flood-episode report
+	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 audit --end $$(date -u -v-1d +%Y-%m-%d)
 replay: ## Create replay job (operator API once service is running)
 	@echo "POST /api/v1/operator/replay with the local operator token"
 backup: ## Create a local timestamped PostgreSQL backup
@@ -29,4 +35,3 @@ backup: ## Create a local timestamped PostgreSQL backup
 restore: ## Restore DUMP into the running database (explicit DUMP=/path/file)
 	@test -n "$(DUMP)" || (echo "DUMP is required" && exit 2)
 	docker compose exec -T postgres pg_restore -U hydropulse -d hydropulse --clean --if-exists < "$(DUMP)"
-

@@ -36,6 +36,8 @@ Run the dashboard separately with `cd frontend && npm install && npm run dev`.
 - `make start PROFILE=streaming` adds the single-node Kafka/Spark profile. Ingestion mode is exclusive and persisted watermarks are shared.
 - `make status`, `make stop`, `make backup`, and `make restore DUMP=...` expose the lifecycle.
 - `make test` verifies scientific invariants and builds the TypeScript application.
+- `make stage1-live` archives current USGS/NWPS payloads; `make stage1-backfill` resumes
+  the bounded historical acquisition and `make stage1-audit` reports its completeness.
 
 Only localhost ports are published. There is no account system and no Redis or object-store emulator.
 

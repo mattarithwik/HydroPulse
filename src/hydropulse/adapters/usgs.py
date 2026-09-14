@@ -80,7 +80,11 @@ class USGSClient:
                     ),
                     first_seen_at=ingested_at,
                     ingested_at=ingested_at,
-                    source_modified_at=None,
+                    source_modified_at=(
+                        datetime.fromisoformat(properties["last_modified"].replace("Z", "+00:00"))
+                        if properties.get("last_modified")
+                        else None
+                    ),
                     qualifiers=tuple(properties.get("qualifier", []) or []),
                     approved=properties.get("approval_status") == "Approved",
                     raw_payload_hash=sha256(serialized).hexdigest(),

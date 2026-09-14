@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Iterator
 
-from sqlalchemy import JSON, DateTime, Float, String, UniqueConstraint, create_engine, select
+from sqlalchemy import JSON, DateTime, Float, String, Text, UniqueConstraint, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from hydropulse.config import get_settings
@@ -74,6 +74,42 @@ class EventRow(Base):
     target_id: Mapped[str] = mapped_column(String(32), index=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     payload: Mapped[dict] = mapped_column(JSON)
+
+
+class SourceArchiveRow(Base):
+    __tablename__ = "source_archives"
+    content_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)
+    resource: Mapped[str] = mapped_column(String(256), index=True)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    source_modified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    media_type: Mapped[str] = mapped_column(String(64))
+    byte_count: Mapped[int]
+    relative_path: Mapped[str] = mapped_column(Text)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class WatermarkRow(Base):
+    __tablename__ = "watermarks"
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    series_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class StationSnapshotRow(Base):
+    __tablename__ = "station_snapshots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    gauge_id: Mapped[str] = mapped_column(String(32), index=True)
+    nwps_id: Mapped[str] = mapped_column(String(16), index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    metadata_json: Mapped[dict] = mapped_column(JSON)
+    thresholds_json: Mapped[dict] = mapped_column(JSON)
 
 
 engine = create_engine(get_settings().database_url)
