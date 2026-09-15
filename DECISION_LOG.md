@@ -47,3 +47,7 @@ The local implementation may use Python 3.14 instead of the plan's original Pyth
 ## Stage-only product scope — September 15, 2026
 
 Numerical flood-chance prediction is removed from the product. HydroPulse forecasts gauge height, maximum gauge height, uncertainty intervals, and separate discharge. Official action/minor/moderate/major stages may appear only as reference lines and deterministic predicted-height crossing context. The application does not infer inundation, issue warnings, or ask users to interpret an unsupported probability. Historical probability eligibility audits remain research provenance explaining this decision, not a serving feature.
+
+## Lean upstream acquisition — September 15, 2026
+
+The first upstream model uses four connected gauges per target rather than the maximum eight: three mainstem signals and one tributary or regulation signal. Historical upstream acquisition retains discharge only. Flow is physically comparable across stations, whereas stage is referenced to different local gauge datums. This reduces planned upstream partitions by 75% while exceeding the minimum of three connected inputs per target. Additional gauges and upstream stage remain optional ablations only if the lean model demonstrates a specific coverage or skill limitation.

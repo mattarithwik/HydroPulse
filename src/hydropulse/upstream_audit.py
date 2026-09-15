@@ -172,6 +172,16 @@ def select_candidates(
     return ranked, selected[:8]
 
 
+def lean_selection(target_id: str, selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    chosen = [item for item in selected if item["is_target_mainstem"]][:3]
+    supplemental = (
+        next(item for item in selected if item["gauge_id"] == REQUIRED_RELEASE_PROXY)
+        if target_id == "02089000"
+        else next(item for item in selected if not item["is_target_mainstem"])
+    )
+    return [*chosen, supplemental]
+
+
 async def run(start: date, cutoff: date) -> Path:
     initialize()
     report: dict[str, Any] = {
@@ -223,12 +233,20 @@ async def run(start: date, cutoff: date) -> Path:
             ranked, selected = select_candidates(
                 basin, features, _series_by_station(metadata_payloads), start, cutoff
             )
+            selected_dicts = [item.__dict__ for item in selected]
+            model_selected = lean_selection(basin.usgs_id, selected_dicts)
             report["targets"][basin.usgs_id] = {
                 "name": basin.target_name,
                 "connected_sites_returned": len(features),
                 "instantaneous_candidates": len(ranked),
                 "minimum_three_suitable_met": len(selected) >= 3,
-                "selected": [item.__dict__ for item in selected],
+                "selected": selected_dicts,
+                "model_selected": model_selected,
+                "acquisition_parameters": ["00060"],
+                "lean_selection_rationale": (
+                    "Three connected mainstem flows plus one tributary or regulation flow. "
+                    "Discharge is comparable across local gauge datums."
+                ),
             }
     output = get_settings().data_dir / "reports" / f"upstream-audit-{cutoff.isoformat()}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -240,9 +258,13 @@ async def backfill_selected(report_path: Path, start: date, cutoff: date) -> dic
     """Backfill only frozen shortlist candidates, preserving monthly resumability."""
     initialize()
     report = json.loads(report_path.read_text())
-    gauge_ids = sorted(
-        {item["gauge_id"] for target in report["targets"].values() for item in target["selected"]}
-    )
+    gauge_parameters: dict[str, tuple[str, ...]] = {}
+    for target_id, target in report["targets"].items():
+        selected = target.get("model_selected") or lean_selection(target_id, target["selected"])
+        parameters = tuple(target.get("acquisition_parameters", ["00060"]))
+        for item in selected:
+            gauge_parameters[item["gauge_id"]] = parameters
+    gauge_ids = sorted(gauge_parameters)
     source = SourceClient()
     semaphore = asyncio.Semaphore(4)
     counts = {
@@ -298,7 +320,7 @@ async def backfill_selected(report_path: Path, start: date, cutoff: date) -> dic
     tasks: list[asyncio.Task[None]] = []
     async for begin, finish in months(start, cutoff):
         for gauge_id in gauge_ids:
-            for parameter in ("00065", "00060"):
+            for parameter in gauge_parameters[gauge_id]:
                 tasks.append(asyncio.create_task(fetch(gauge_id, parameter, begin, finish)))
     counts["partitions_total"] = len(tasks)
     failures: list[str] = []

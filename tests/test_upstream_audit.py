@@ -1,7 +1,7 @@
 from datetime import date
 
 from hydropulse.domain import BASINS
-from hydropulse.upstream_audit import _series_by_station, select_candidates
+from hydropulse.upstream_audit import _series_by_station, lean_selection, select_candidates
 
 
 def test_only_primary_instantaneous_series_are_selected():
@@ -60,3 +60,8 @@ def test_target_is_never_selected_as_its_own_upstream_input():
     }
     _, selected = select_candidates(basin, features, series, date(2007, 10, 1), date(2026, 9, 13))
     assert [item.gauge_id for item in selected] == ["1"]
+
+
+def test_lean_selection_keeps_three_mainstem_and_one_supplemental():
+    selected = [{"gauge_id": str(index), "is_target_mainstem": index < 5} for index in range(8)]
+    assert [item["gauge_id"] for item in lean_selection("target", selected)] == ["0", "1", "2", "5"]
