@@ -223,6 +223,54 @@ class Episode:
     uncertain_end: bool
 
 
+@dataclass(frozen=True)
+class StormCluster:
+    started_at: datetime
+    ended_at: datetime
+    gauge_ids: tuple[str, ...]
+    episode_count: int
+
+
+def cluster_episodes(episodes: list[Episode]) -> list[StormCluster]:
+    """Merge episode windows expanded by 72 hours, including across basins."""
+    clusters: list[StormCluster] = []
+    margin = timedelta(hours=72)
+    for episode in sorted(episodes, key=lambda item: item.started_at):
+        start = episode.started_at - margin
+        end = episode.last_above_at + margin
+        if clusters and start <= clusters[-1].ended_at:
+            previous = clusters.pop()
+            clusters.append(
+                StormCluster(
+                    started_at=min(previous.started_at, start),
+                    ended_at=max(previous.ended_at, end),
+                    gauge_ids=tuple(sorted(set(previous.gauge_ids) | {episode.gauge_id})),
+                    episode_count=previous.episode_count + 1,
+                )
+            )
+        else:
+            clusters.append(StormCluster(start, end, (episode.gauge_id,), 1))
+    return clusters
+
+
+SPLITS = {
+    "training": (date(2007, 10, 1), date(2017, 12, 31)),
+    "validation": (date(2018, 1, 1), date(2020, 12, 31)),
+    "calibration": (date(2021, 1, 1), date(2023, 12, 31)),
+    "test": (date(2024, 1, 1), None),
+}
+
+
+def cluster_split(cluster: StormCluster, cutoff: date) -> str | None:
+    for name, (start, configured_end) in SPLITS.items():
+        split_end = configured_end or cutoff
+        start_at = datetime.combine(start, datetime.min.time(), UTC)
+        end_at = datetime.combine(split_end + timedelta(days=1), datetime.min.time(), UTC)
+        if cluster.started_at >= start_at and cluster.ended_at < end_at:
+            return name
+    return None
+
+
 def find_episodes(
     rows: list[tuple[datetime, float | None]], threshold: float, gauge_id: str
 ) -> list[Episode]:
@@ -283,6 +331,7 @@ def audit(end: date) -> Path:
         "targets": {},
     }
     all_episodes: list[Episode] = []
+    cutoff_exclusive = datetime.combine(end + timedelta(days=1), datetime.min.time(), UTC)
     with session_scope() as session:
         for basin in BASINS:
             rows = session.execute(
@@ -291,6 +340,7 @@ def audit(end: date) -> Path:
                     ObservationRow.gauge_id == basin.usgs_id,
                     ObservationRow.parameter_code == "00065",
                     ObservationRow.source == "usgs",
+                    ObservationRow.event_time < cutoff_exclusive,
                 )
                 .order_by(ObservationRow.event_time)
             ).all()
@@ -321,6 +371,44 @@ def audit(end: date) -> Path:
                 "episodes": [asdict(item) for item in episodes],
             }
     report["individual_episode_count"] = len(all_episodes)
+    clusters = cluster_episodes(all_episodes)
+    cluster_counts = {name: 0 for name in SPLITS}
+    excluded_boundary_clusters = 0
+    for cluster in clusters:
+        split = cluster_split(cluster, end)
+        if split is None:
+            excluded_boundary_clusters += 1
+        else:
+            cluster_counts[split] += 1
+    report["storm_clusters"] = [asdict(item) for item in clusters]
+    report["storm_cluster_counts_by_split"] = cluster_counts
+    report["boundary_overlapping_clusters_excluded"] = excluded_boundary_clusters
+    target_episode_counts: dict[str, dict[str, int]] = {}
+    for gauge_id in report["targets"]:
+        target_episode_counts[gauge_id] = {name: 0 for name in SPLITS}
+        for episode in all_episodes:
+            if episode.gauge_id != gauge_id:
+                continue
+            midpoint = episode.started_at + (episode.last_above_at - episode.started_at) / 2
+            for name, (start, configured_end) in SPLITS.items():
+                split_end = configured_end or end
+                if start <= midpoint.date() <= split_end:
+                    target_episode_counts[gauge_id][name] += 1
+                    break
+    report["target_episode_counts_by_split"] = target_episode_counts
+    report["minor_probability_gate"] = {
+        "required_pooled_clusters": {"training": 30, "validation": 10, "calibration": 10},
+        "required_target_episodes": {"training": 3, "calibration": 3},
+        "eligible": (
+            cluster_counts["training"] >= 30
+            and cluster_counts["validation"] >= 10
+            and cluster_counts["calibration"] >= 10
+            and all(
+                counts["training"] >= 3 and counts["calibration"] >= 3
+                for counts in target_episode_counts.values()
+            )
+        ),
+    }
     report["complete"] = all(
         item["coverage_fraction"] >= 0.9 for item in report["targets"].values()
     )
@@ -339,7 +427,7 @@ def parse_args() -> argparse.Namespace:
     backfill.add_argument(
         "--end",
         type=date.fromisoformat,
-        default=lambda: datetime.now(UTC).date() - timedelta(days=1),
+        default=datetime.now(UTC).date() - timedelta(days=1),
     )
     backfill.add_argument("--concurrency", type=int, default=4)
     report = sub.add_parser("audit")
