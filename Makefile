@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit replay backup restore
+.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit replay backup restore
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -27,6 +27,8 @@ stage1-backfill: ## Resume the native USGS backfill through the latest complete 
 	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 backfill-usgs --start 2007-10-01 --end $$(date -u -v-1d +%Y-%m-%d) --concurrency 4
 stage1-audit: ## Build the current coverage and flood-episode report
 	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 audit --end $$(date -u -v-1d +%Y-%m-%d)
+quality-audit: ## Build detailed coverage, gap, threshold, and eligibility reports
+	PYTHONPATH=src .venv/bin/python -m hydropulse.quality_audit --end $$(date -u -v-1d +%Y-%m-%d)
 replay: ## Create replay job (operator API once service is running)
 	@echo "POST /api/v1/operator/replay with the local operator token"
 backup: ## Create a local timestamped PostgreSQL backup
