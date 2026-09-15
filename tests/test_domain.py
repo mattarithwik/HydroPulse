@@ -2,8 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from hydropulse.domain import EvidenceStatus, QuantilePoint, native_window_label
-from hydropulse.forecasting import eligibility_status, ordered_probabilities
+from hydropulse.domain import QuantilePoint, native_window_label
 
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
@@ -29,9 +28,3 @@ def test_complete_window_can_certify_negative():
 def test_crossing_quantiles_are_rejected():
     with pytest.raises(ValueError):
         QuantilePoint(horizon_hours=1, valid_at=NOW, quantiles={"0.1": 2, "0.5": 1})
-
-
-def test_probability_gate_and_projection():
-    assert eligibility_status(29, 10, 10, 3, 3) is EvidenceStatus.INSUFFICIENT_EVENTS
-    assert eligibility_status(30, 10, 10, 3, 3) is EvidenceStatus.VALIDATED
-    assert ordered_probabilities([0.2, 0.1, 1.2]) == [0.2, 0.2, 1.0]

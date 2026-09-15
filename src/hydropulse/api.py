@@ -95,7 +95,10 @@ def official_forecasts() -> dict:
 
 @app.get("/api/v1/risk-events")
 def risk_events() -> dict:
-    return {"items": [], "note": "experimental probabilities never trigger validated events"}
+    return {
+        "items": [],
+        "note": "Only observed flooding and predicted stage-threshold crossings are produced; probability events are disabled.",
+    }
 
 
 @app.get("/api/v1/models")
@@ -103,7 +106,7 @@ def models() -> dict:
     return {
         "champion": "persistence-damped-v1",
         "stage": "available",
-        "risk": "insufficient_events",
+        "probability_products": "disabled",
     }
 
 

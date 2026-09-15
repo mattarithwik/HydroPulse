@@ -28,7 +28,6 @@ class Freshness(StrEnum):
 class EventType(StrEnum):
     OBSERVED_FLOODING = "observed_flooding"
     PREDICTED_STAGE_CROSSING = "predicted_stage_crossing"
-    VALIDATED_PROBABILITY_RISK = "validated_probability_risk"
 
 
 class Basin(BaseModel):
@@ -134,15 +133,12 @@ class QuantilePoint(BaseModel):
         return self
 
 
-class RiskEstimate(BaseModel):
+class ThresholdCrossing(BaseModel):
     threshold_name: str
     threshold_ft: float
     horizon_hours: int
-    probability: float | None = Field(default=None, ge=0, le=1)
-    method: str
-    evidence_status: EvidenceStatus
-    independent_training_clusters: int
-    independent_calibration_clusters: int
+    median_crosses: bool
+    forecast_interval_straddles: bool
 
 
 class Forecast(BaseModel):
@@ -166,7 +162,7 @@ class Forecast(BaseModel):
     stage: tuple[QuantilePoint, ...]
     maximum_stage: tuple[QuantilePoint, ...]
     discharge: tuple[QuantilePoint, ...]
-    risk: tuple[RiskEstimate, ...]
+    threshold_crossings: tuple[ThresholdCrossing, ...] = ()
     horizon_model_mapping: dict[int, str]
 
 

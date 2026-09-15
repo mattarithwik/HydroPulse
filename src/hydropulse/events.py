@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from hydropulse.domain import EvidenceStatus, EventType
+from hydropulse.domain import EventType
 
 
 @dataclass
@@ -29,7 +29,3 @@ class EventState:
             if self.open and len(self.below_batches) >= 3:
                 self.open = False
                 self.transitions.append((at, "resolved"))
-
-
-def probability_can_trigger(status: EvidenceStatus) -> bool:
-    return status is EvidenceStatus.VALIDATED

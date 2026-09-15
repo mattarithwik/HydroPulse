@@ -1,6 +1,6 @@
 # HydroPulse
 
-HydroPulse is a localhost-only river forecasting platform for Cedar Rapids, Cartersville, and Goldsboro. It keeps gauge height as the primary target, trains discharge separately, preserves source revisions, and treats unsupported flood probabilities as experimental.
+HydroPulse is a localhost-only river-height forecasting platform for Cedar Rapids, Cartersville, and Goldsboro. It keeps gauge height as the primary target, trains discharge separately, and preserves source revisions. Numerical flood-chance products are disabled.
 
 The repository currently provides the runnable vertical slice and the contracts on which data qualification, weather extraction, neural training, and historical benchmarking build. Expensive backfills are deliberately not run during bootstrap: the implementation plan requires a measured seven-day transfer benchmark and a frozen audit manifest first.
 
@@ -49,7 +49,7 @@ Only localhost ports are published. There is no account system and no Redis or o
 - At 91–120 minutes of observation age forecasts are degraded; beyond 120 minutes a new forecast is suppressed.
 - Window-maximum event labels use native observations. A crossing proves a positive label; missing coverage cannot prove a negative label.
 - 48/72-hour contracts identify the no-future-NWP model explicitly.
-- Official-threshold probabilities report their method and evidence count. `insufficient_events` probabilities cannot create validated risk events.
+- Official thresholds are displayed as height references. HydroPulse does not serve flood probabilities or issue flood warnings.
 - NWM comparisons are discharge-only MAE, RMSE, and signed bias; RFC comparison protocols remain distinct.
 
 See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the complete qualification and acceptance protocol and [docs/architecture.md](docs/architecture.md) for code boundaries.

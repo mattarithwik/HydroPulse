@@ -29,7 +29,8 @@ def test_horizons_anchor_to_issuance_and_long_horizons_are_no_nwp():
     assert [point.horizon_hours for point in forecast.stage] == [1, 6, 24, 48, 72]
     assert forecast.stage[0].valid_at == now + timedelta(hours=1)
     assert forecast.horizon_model_mapping[72] == "no-nwp"
-    assert all(r.evidence_status.value == "insufficient_events" for r in forecast.risk)
+    assert forecast.threshold_crossings
+    assert not hasattr(forecast, "risk")
 
 
 @pytest.mark.parametrize(

@@ -6,12 +6,11 @@ from math import exp
 from hydropulse.domain import (
     HORIZONS,
     Basin,
-    EvidenceStatus,
     Forecast,
     Freshness,
     Observation,
     QuantilePoint,
-    RiskEstimate,
+    ThresholdCrossing,
     freshness_at,
     stable_id,
 )
@@ -58,17 +57,17 @@ class PersistenceForecaster:
             maxima.append(self._point(issued_at, horizon, running_max, spread * 1.15))
             q = max(0.0, 500 * max(point, 0) ** 1.5)
             discharge.append(self._point(issued_at, horizon, q, max(25, q * 0.15)))
-        calibration = EvidenceStatus.INSUFFICIENT_EVENTS
-        risks = tuple(
-            RiskEstimate(
+        crossings = tuple(
+            ThresholdCrossing(
                 threshold_name="minor",
                 threshold_ft=basin.flood_stage_ft,
                 horizon_hours=h,
-                probability=self._logistic(maxima[i].quantiles["0.5"], basin.flood_stage_ft),
-                method="stage_maximum_distribution_proxy",
-                evidence_status=calibration,
-                independent_training_clusters=0,
-                independent_calibration_clusters=0,
+                median_crosses=maxima[i].quantiles["0.5"] >= basin.flood_stage_ft,
+                forecast_interval_straddles=(
+                    maxima[i].quantiles["0.05"]
+                    < basin.flood_stage_ft
+                    <= maxima[i].quantiles["0.95"]
+                ),
             )
             for i, h in enumerate(HORIZONS)
         )
@@ -94,7 +93,7 @@ class PersistenceForecaster:
             stage=tuple(stage),
             maximum_stage=tuple(maxima),
             discharge=tuple(discharge),
-            risk=risks,
+            threshold_crossings=crossings,
             horizon_model_mapping={
                 1: "no-nwp",
                 6: "no-nwp",
@@ -120,28 +119,3 @@ class PersistenceForecaster:
             valid_at=issued_at + timedelta(hours=horizon),
             quantiles={q: max(0.0, center + z * spread) for q, z in offsets.items()},
         )
-
-    @staticmethod
-    def _logistic(value: float, threshold: float) -> float:
-        return 1 / (1 + exp(-(value - threshold) / 0.75))
-
-
-def eligibility_status(
-    training: int, validation: int, calibration: int, target_training: int, target_calibration: int
-) -> EvidenceStatus:
-    eligible = (
-        training >= 30
-        and validation >= 10
-        and calibration >= 10
-        and target_training >= 3
-        and target_calibration >= 3
-    )
-    return EvidenceStatus.VALIDATED if eligible else EvidenceStatus.INSUFFICIENT_EVENTS
-
-
-def ordered_probabilities(probabilities: list[float]) -> list[float]:
-    """Project cumulative horizon risks onto a non-decreasing sequence."""
-    result: list[float] = []
-    for probability in probabilities:
-        result.append(max(result[-1] if result else 0.0, min(1.0, max(0.0, probability))))
-    return result

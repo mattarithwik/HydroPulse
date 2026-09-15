@@ -43,3 +43,7 @@ Restrict observed-event/background-sampled NWM comparisons to matched secondary-
 ## Local host authorization — September 14, 2026
 
 The local implementation may use Python 3.14 instead of the plan's original Python 3.12 baseline. Compatibility is verified by the automated test suite and containerized services retain their individually pinned runtimes. The project is authorized to retain up to 35 GB locally; acquisition must still stop before project usage exceeds that limit or host free space drops below 20 GB.
+
+## Stage-only product scope — September 15, 2026
+
+Numerical flood-chance prediction is removed from the product. HydroPulse forecasts gauge height, maximum gauge height, uncertainty intervals, and separate discharge. Official action/minor/moderate/major stages may appear only as reference lines and deterministic predicted-height crossing context. The application does not infer inundation, issue warnings, or ask users to interpret an unsupported probability. Historical probability eligibility audits remain research provenance explaining this decision, not a serving feature.
