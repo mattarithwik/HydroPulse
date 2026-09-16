@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill replay backup restore
+.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis replay backup restore
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -33,6 +33,8 @@ upstream-audit: ## Discover and qualify connected upstream gauge candidates
 	PYTHONPATH=src .venv/bin/python -m hydropulse.upstream_audit audit --end 2026-09-13
 upstream-backfill: ## Resume selected upstream gauge history acquisition
 	PYTHONPATH=src .venv/bin/python -m hydropulse.upstream_audit backfill --report data/reports/upstream-audit-2026-09-13.json --end 2026-09-13
+upstream-analysis: ## Verify actual upstream coverage and select training-only travel lags
+	PYTHONPATH=src .venv/bin/python -m hydropulse.upstream_analysis --report data/reports/upstream-audit-2026-09-13.json --end 2026-09-13
 replay: ## Create replay job (operator API once service is running)
 	@echo "POST /api/v1/operator/replay with the local operator token"
 backup: ## Create a local timestamped PostgreSQL backup
