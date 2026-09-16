@@ -1,6 +1,11 @@
 from datetime import UTC, date, datetime, timedelta
 
-from hydropulse.upstream_analysis import expected_month_count, hourly_means, lag_sweep
+from hydropulse.upstream_analysis import (
+    expected_month_count,
+    hourly_means,
+    lag_sweep,
+    quarter_hour_coverage,
+)
 
 
 def test_expected_month_count_is_inclusive():
@@ -14,6 +19,12 @@ def test_hourly_means_preserve_missing_hours():
         [(start, 1), (start + timedelta(minutes=15), 3), (start + timedelta(hours=2), 9)]
     )
     assert result == {start: 2, start + timedelta(hours=2): 9}
+
+
+def test_quarter_hour_coverage_counts_high_frequency_readings_once():
+    start = datetime(2015, 1, 1, tzinfo=UTC)
+    values = [(start + timedelta(minutes=offset), 1) for offset in (0, 5, 10, 15)]
+    assert quarter_hour_coverage(values, expected_samples=2) == 1.0
 
 
 def test_lag_sweep_recovers_known_upstream_lead():

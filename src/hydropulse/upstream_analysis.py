@@ -94,6 +94,19 @@ def hourly_means(values: Iterable[tuple[datetime, float]]) -> dict[datetime, flo
     return {hour: fmean(samples) for hour, samples in buckets.items()}
 
 
+def quarter_hour_coverage(values: Iterable[tuple[datetime, float]], expected_samples: int) -> float:
+    """Return observed 15-minute bins as a fraction of expected 15-minute bins.
+
+    Some USGS stations publish at five-minute resolution.  Counting their raw
+    timestamps against a fifteen-minute expectation would incorrectly imply
+    more than 100% coverage, so each populated quarter-hour counts once.
+    """
+    bins = {
+        at.replace(minute=at.minute - at.minute % 15, second=0, microsecond=0) for at, _ in values
+    }
+    return len(bins) / expected_samples
+
+
 def hourly_changes(
     values: dict[datetime, float], transform_log: bool = False
 ) -> dict[datetime, float]:
@@ -139,9 +152,14 @@ def lag_sweep(
                 "correlation": correlation if np.isfinite(correlation) else None,
             }
         )
-    eligible = [item for item in candidates if item["correlation"] is not None]
+    # Rising upstream discharge should lead a rising downstream stage.  A
+    # negative correlation is useful diagnostic information, but not a
+    # physically plausible travel-time feature to carry into the first model.
+    eligible = [
+        item for item in candidates if item["correlation"] is not None and item["correlation"] > 0
+    ]
     selected = (
-        max(eligible, key=lambda item: (abs(item["correlation"]), -item["lag_hours"]))
+        max(eligible, key=lambda item: (item["correlation"], -item["lag_hours"]))
         if eligible
         else None
     )
@@ -192,7 +210,7 @@ def run(report_path: Path, start: date, cutoff: date) -> Path:
                 gauge_id = candidate["gauge_id"]
                 all_values = canonical_values(session, gauge_id, PARAMETER_DISCHARGE, cutoff_at)
                 training_values = [(at, value) for at, value in all_values if at <= TRAINING_END]
-                coverage = len(all_values) / expected_samples
+                coverage = quarter_hour_coverage(all_values, expected_samples)
                 lags = lag_sweep(hourly_means(training_values), target_training)
                 target_result["gauges"].append(
                     {
