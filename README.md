@@ -37,7 +37,10 @@ Run the dashboard separately with `cd frontend && npm install && npm run dev`.
 ## Operating modes
 
 - `make start` uses the direct PostgreSQL path.
-- `make start PROFILE=streaming` adds the single-node Kafka/Spark profile. Ingestion mode is exclusive and persisted watermarks are shared.
+- `make start PROFILE=streaming` runs a single-node Kafka/Spark path: the collector publishes
+  immutable observation-revision events to Kafka and Spark Structured Streaming writes them through
+  the same idempotent PostgreSQL ingestion transaction. Run `make streaming-demo` to exercise it;
+  Spark uses five-minute micro-batches and checkpoints offsets under `data/spark-checkpoints/`.
 - `make status`, `make stop`, `make backup`, and `make restore DUMP=...` expose the lifecycle.
 - `make test` verifies scientific invariants and builds the TypeScript application.
 - `make stage1-live` archives current USGS/NWPS payloads; `make stage1-backfill` resumes

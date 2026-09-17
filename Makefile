@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features build-sequences train-baseline train-xgboost train-gru compare-models shadow-run shadow-challengers replay backup restore restore-test
+.PHONY: help bootstrap start stop status test lint seed stage1-live streaming-demo stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features build-sequences train-baseline train-xgboost train-gru compare-models shadow-run shadow-challengers replay backup restore restore-test
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -23,6 +23,10 @@ seed: ## Add explicitly synthetic UI-development observations
 	python -m hydropulse.cli seed-demo
 stage1-live: ## Archive current USGS and NWPS payloads for all targets
 	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 live
+streaming-demo: ## Publish live USGS revisions through Kafka and Spark into PostgreSQL
+	HYDROPULSE_INGESTION_MODE=streaming COMPOSE_PROFILES=streaming docker compose up -d --build kafka spark api
+	docker compose exec -T api python -m hydropulse.stage1 live
+	@echo "Spark processes the Kafka micro-batch within five minutes; inspect with: docker compose logs spark"
 stage1-backfill: ## Resume the native USGS backfill through the latest complete UTC day
 	PYTHONPATH=src .venv/bin/python -m hydropulse.stage1 backfill-usgs --start 2007-10-01 --end $$(date -u -v-1d +%Y-%m-%d) --concurrency 4
 stage1-audit: ## Build the current coverage and flood-episode report

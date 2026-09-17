@@ -8,7 +8,7 @@ services:
     deploy: {resources: {limits: {memory: 1G}}}
   api:
     build: {context: ., dockerfile: docker/api.Dockerfile}
-    environment: {HYDROPULSE_DATABASE_URL: postgresql+psycopg://hydropulse:hydropulse@postgres/hydropulse, HYDROPULSE_INGESTION_MODE: "${HYDROPULSE_INGESTION_MODE:-direct}", HYDROPULSE_OPERATOR_TOKEN: "${HYDROPULSE_OPERATOR_TOKEN:-local-development-token}"}
+    environment: {HYDROPULSE_DATABASE_URL: postgresql+psycopg://hydropulse:hydropulse@postgres/hydropulse, HYDROPULSE_INGESTION_MODE: "${HYDROPULSE_INGESTION_MODE:-direct}", HYDROPULSE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092, HYDROPULSE_OPERATOR_TOKEN: "${HYDROPULSE_OPERATOR_TOKEN:-local-development-token}"}
     volumes: [./data:/app/data, ./artifacts:/app/artifacts]
     depends_on: {postgres: {condition: service_healthy}}
     ports: ["127.0.0.1:8000:8000"]
@@ -32,13 +32,15 @@ services:
   kafka:
     image: apache/kafka:4.0.0
     profiles: [streaming]
-    environment: {KAFKA_NODE_ID: 1, KAFKA_PROCESS_ROLES: broker,controller, KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093", KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093", KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092", KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER, KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1, KAFKA_LOG_RETENTION_HOURS: 168, KAFKA_LOG_RETENTION_BYTES: 1073741824}
+    environment: {KAFKA_NODE_ID: 1, KAFKA_PROCESS_ROLES: "broker,controller", KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093", KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093", KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092", KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER, KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1, KAFKA_LOG_RETENTION_HOURS: 168, KAFKA_LOG_RETENTION_BYTES: 1073741824}
     deploy: {resources: {limits: {memory: 768M}}}
   spark:
-    image: apache/spark:3.5.6-scala2.12-java17-python3-ubuntu
+    build: {context: ., dockerfile: docker/spark.Dockerfile}
     profiles: [streaming]
     depends_on: [kafka]
-    command: [sleep, infinity]
+    environment: {HYDROPULSE_DATABASE_URL: postgresql+psycopg://hydropulse:hydropulse@postgres/hydropulse, HYDROPULSE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092, HYDROPULSE_SPARK_CHECKPOINT: /app/data/spark-checkpoints/observations}
+    volumes: [./data:/app/data]
+    command: ["/opt/spark/bin/spark-submit", "--master", "local[2]", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6", "/app/src/hydropulse/spark_stream.py"]
     deploy: {resources: {limits: {memory: 1536M}}}
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.3.2

@@ -24,14 +24,24 @@ from hydropulse.db import (
     initialize,
     session_scope,
 )
-from hydropulse.domain import BASINS, Basin
+from hydropulse.domain import BASINS, Basin, Observation
 from hydropulse.ingestion import persist_observations
+from hydropulse.streaming import publish_observations
 
 NWPS_BASE = "https://api.water.noaa.gov/nwps/v1"
 IEM_LIST = "https://mesonet.agron.iastate.edu/api/1/nws/afos/list.json"
 IEM_TEXT = "https://mesonet.agron.iastate.edu/api/1/nwstext"
 IEM_PRODUCTS = {"CIDI4": "RVFCIW", "CARV2": "RVFJAA", "GLDN7": "RVFRAH"}
 START_DATE = date(2007, 10, 1)
+
+
+def ingest_live_observations(
+    observations: list[Observation], raw_payload: dict[str, Any]
+) -> int:
+    """Choose the one configured live ingestion path; never write both paths."""
+    if get_settings().ingestion_mode == "streaming":
+        return publish_observations(observations, raw_payload)
+    return persist_observations(observations, raw_payload)
 
 
 class SourceClient:
@@ -131,7 +141,7 @@ async def collect_live() -> dict[str, int]:
                     metadata={"start": window_start.isoformat(), "end": window_end.isoformat()},
                 )
                 observations = USGSClient.parse(payload, basin.usgs_id, parameter, retrieved)
-                counts["observations"] += persist_observations(
+                counts["observations"] += ingest_live_observations(
                     observations, {"archive_hash": archived.content_hash}
                 )
         return dict(counts)

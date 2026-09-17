@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     observation_retention_days: int = 90
     max_history_days: int = 31
     project_disk_budget_gb: int = 35
+    kafka_bootstrap_servers: str = "kafka:9092"
 
 
 @lru_cache

@@ -26,10 +26,10 @@ Last verified: 2026-09-17.
    No weather-enhanced skill claim is currently possible.
 4. **Official historical comparisons.** IEM RFC and historical operational NWM extraction and
    availability audits have not been run, so no comparison with official forecasts is claimed.
-5. **Advanced challengers.** XGBoost and GRU experiments, MLflow registration, and their ablations
-   remain future candidates. The currently runnable product uses the transparent ridge candidate.
-6. **Streaming demonstration.** Kafka and Spark containers exist, but the direct-to-streaming
-   parity implementation and a new seven-day streaming soak are not complete.
+5. **Advanced challengers.** XGBoost and GRU experiments are shadow-only; the currently runnable
+   product uses the transparent ridge candidate.
+6. **Streaming soak.** Kafka publishing and Spark Structured Streaming persistence are implemented,
+   but the separate seven-day streaming-profile soak and direct/streaming parity report remain open.
 
 Flood-probability modeling is intentionally out of scope. The calibration period contains only
 one qualifying flood episode, and the product reports stage height and uncertainty instead.
