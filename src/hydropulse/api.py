@@ -7,7 +7,8 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from hydropulse.config import Settings, get_settings
 from hydropulse.db import EventRow, Repository, initialize, session_scope
@@ -24,6 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 repository = Repository()
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.on_event("startup")
@@ -104,7 +110,9 @@ def risk_events() -> dict:
 @app.get("/api/v1/models")
 def models() -> dict:
     return {
-        "champion": "direct-ridge-stage-v1",
+        "champion": "persistence-damped-v1",
+        "candidate": "direct-ridge-stage-v1",
+        "candidate_status": "seven-day-shadow-required",
         "stage": "available",
         "probability_products": "disabled",
     }
@@ -112,7 +120,25 @@ def models() -> dict:
 
 @app.get("/api/v1/verification")
 def verification() -> dict:
-    return {"status": "unscored", "independent_test_opened": False, "claims": []}
+    reports = []
+    for basin in BASINS:
+        path = get_settings().data_dir / "reports" / f"baseline-stage-{basin.usgs_id}.json"
+        if path.exists():
+            report = json.loads(path.read_text())
+            reports.append(
+                {
+                    "target_id": basin.usgs_id,
+                    "selected_variant": report["selected_variant"],
+                    "validation_mae_ft": report["validation_mae_ft"],
+                }
+            )
+    return {
+        "status": "development-only",
+        "independent_test_opened": False,
+        "shadow_status": "pending-seven-elapsed-days",
+        "reports": reports,
+        "claims": [],
+    }
 
 
 @app.get("/api/v1/system/status")

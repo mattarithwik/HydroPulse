@@ -1,0 +1,13 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+artifacts
+backups
+data
+data.nosync
+frontend/dist
+frontend/node_modules
+frontend/*.tsbuildinfo
+__pycache__
+*.pyc

@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features train-baseline replay backup restore
+.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features train-baseline shadow-run replay backup restore restore-test
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -15,10 +15,10 @@ status: ## Show service and resource state
 	docker compose ps
 	docker stats --no-stream $$(docker compose ps -q) 2>/dev/null || true
 test: ## Run backend tests and frontend type/build checks
-	python -m pytest
+	PYTHONPATH=src .venv/bin/python -m pytest
 	cd frontend && npm run build
 lint: ## Run Python lint checks
-	python -m ruff check src tests
+	.venv/bin/ruff check src tests
 seed: ## Add explicitly synthetic UI-development observations
 	python -m hydropulse.cli seed-demo
 stage1-live: ## Archive current USGS and NWPS payloads for all targets
@@ -41,11 +41,20 @@ build-features: ## Build causal river-only training examples from the frozen man
 	PYTHONPATH=src .venv/bin/python -m hydropulse.features --manifest data/manifests/stage-model-2026-09-13.json --target $(TARGET)
 train-baseline: ## Train a direct stage-height baseline and score only validation years
 	PYTHONPATH=src .venv/bin/python -m hydropulse.train_baseline --target $(TARGET)
+shadow-run: ## Reconcile live observations and issue candidate forecasts for all targets
+	docker compose exec -T api python -m hydropulse.shadow
 replay: ## Create replay job (operator API once service is running)
 	@echo "POST /api/v1/operator/replay with the local operator token"
 backup: ## Create a local timestamped PostgreSQL backup
-	@mkdir -p backups
-	docker compose exec -T postgres pg_dump -U hydropulse -Fc hydropulse > backups/hydropulse-$$(date -u +%Y%m%dT%H%M%SZ).dump
+	@mkdir -p data/backups
+	docker compose exec -T postgres pg_dump -U hydropulse -Fc hydropulse > data/backups/hydropulse-$$(date -u +%Y%m%dT%H%M%SZ).dump
 restore: ## Restore DUMP into the running database (explicit DUMP=/path/file)
 	@test -n "$(DUMP)" || (echo "DUMP is required" && exit 2)
 	docker compose exec -T postgres pg_restore -U hydropulse -d hydropulse --clean --if-exists < "$(DUMP)"
+restore-test: ## Verify DUMP in an isolated temporary database, then remove that database
+	@test -n "$(DUMP)" || (echo "DUMP is required" && exit 2)
+	docker compose exec -T postgres dropdb -U hydropulse --if-exists hydropulse_restore_test
+	docker compose exec -T postgres createdb -U hydropulse hydropulse_restore_test
+	docker compose exec -T postgres pg_restore -U hydropulse -d hydropulse_restore_test < "$(DUMP)"
+	docker compose exec -T postgres psql -U hydropulse -d hydropulse_restore_test -c 'SELECT count(*) AS forecasts FROM forecasts;'
+	docker compose exec -T postgres dropdb -U hydropulse hydropulse_restore_test

@@ -150,6 +150,7 @@ class Forecast(BaseModel):
     available_data_cutoff: datetime
     snapshot_id: str
     stage_model_version: str
+    model_status: str = "candidate_shadow"
     discharge_model_version: str
     threshold_version: str
     weather_provider: str | None

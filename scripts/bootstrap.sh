@@ -8,5 +8,5 @@ python_supported=$(python3 -c 'import sys; print(int((3, 12) <= sys.version_info
 [ "$python_supported" = "1" ] || { echo 'Python 3.12 through 3.14 is required'; exit 1; }
 free_kb=$(df -Pk . | awk 'NR==2 {print $4}')
 [ "$free_kb" -ge 20971520 ] || { echo 'At least 20 GB host disk headroom is required'; exit 1; }
-mkdir -p data artifacts backups
+mkdir -p data/backups artifacts
 printf 'HydroPulse prerequisites passed. Copy .env.example to .env and change the token.\n'

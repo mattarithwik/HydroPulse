@@ -17,6 +17,8 @@ make start
 ```
 
 Open [http://localhost:8080](http://localhost:8080). API documentation is at [http://localhost:8000/api/docs](http://localhost:8000/api/docs).
+If port 8080 is already occupied, start with `HYDROPULSE_UI_PORT=8081 make start` and open
+`http://localhost:8081` instead.
 
 For a local UI smoke test without external data, install the Python project, seed clearly marked synthetic observations, and issue a forecast. Synthetic rows are rejected from scientific reporting by their source and qualifier.
 
@@ -40,6 +42,8 @@ Run the dashboard separately with `cd frontend && npm install && npm run dev`.
 - `make test` verifies scientific invariants and builds the TypeScript application.
 - `make stage1-live` archives current USGS/NWPS payloads; `make stage1-backfill` resumes
   the bounded historical acquisition and `make stage1-audit` reports its completeness.
+- `make backup` writes a PostgreSQL backup under the iCloud-excluded `data/backups` directory;
+  verify one safely with `make restore-test DUMP=data/backups/<file>.dump`.
 
 Only localhost ports are published. There is no account system and no Redis or object-store emulator.
 
@@ -53,3 +57,5 @@ Only localhost ports are published. There is no account system and no Redis or o
 - NWM comparisons are discharge-only MAE, RMSE, and signed bias; RFC comparison protocols remain distinct.
 
 See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the complete qualification and acceptance protocol and [docs/architecture.md](docs/architecture.md) for code boundaries.
+Current completion gates and blockers are tracked in
+[docs/completion-status.md](docs/completion-status.md).
