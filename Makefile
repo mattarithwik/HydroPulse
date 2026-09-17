@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features train-baseline shadow-run replay backup restore restore-test
+.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features build-sequences train-baseline train-xgboost train-gru compare-models shadow-run shadow-challengers replay backup restore restore-test
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -39,10 +39,20 @@ freeze-manifest: ## Freeze the data split and qualified upstream lags before sta
 	PYTHONPATH=src .venv/bin/python -m hydropulse.evaluation_manifest --end 2026-09-13 --quality-report data/reports/quality-audit-2026-09-13.json --upstream-report data/reports/upstream-analysis-2026-09-13.json
 build-features: ## Build causal river-only training examples from the frozen manifest
 	PYTHONPATH=src .venv/bin/python -m hydropulse.features --manifest data/manifests/stage-model-2026-09-13.json --target $(TARGET)
+build-sequences: ## Build seven-day hourly histories for XGBoost and GRU challengers
+	PYTHONPATH=src .venv/bin/python -m hydropulse.sequence_features --manifest data/manifests/stage-model-2026-09-13.json --target $(TARGET)
 train-baseline: ## Train a direct stage-height baseline and score only validation years
 	PYTHONPATH=src .venv/bin/python -m hydropulse.train_baseline --target $(TARGET)
+train-xgboost: ## Train direct XGBoost stage challengers on frozen development splits
+	PYTHONPATH=src .venv/bin/python -m hydropulse.train_xgboost --target $(TARGET)
+train-gru: ## Train three-seed direct quantile GRU stage challengers
+	PYTHONPATH=src .venv/bin/python -m hydropulse.train_gru --target $(TARGET)
+compare-models: ## Compare challengers with the frozen development promotion gate
+	PYTHONPATH=src .venv/bin/python -m hydropulse.model_comparison --target $(TARGET)
 shadow-run: ## Reconcile live observations and issue candidate forecasts for all targets
 	docker compose exec -T api python -m hydropulse.shadow
+shadow-challengers: ## Locally collect and record XGBoost/GRU shadow forecasts
+	PYTHONPATH=src .venv/bin/python -m hydropulse.shadow_challengers
 replay: ## Create replay job (operator API once service is running)
 	@echo "POST /api/v1/operator/replay with the local operator token"
 backup: ## Create a local timestamped PostgreSQL backup

@@ -139,6 +139,49 @@ async def collect_live() -> dict[str, int]:
         await source.close()
 
 
+async def collect_recent_stage_history(days: int = 9) -> dict[str, int]:
+    """Reconcile the short stage-history window needed by sequence models.
+
+    This deliberately has its own archive resource name.  A monthly historical
+    partition can already exist while new readings in that same month continue
+    to arrive, so treating that partition as immutable would leave a gap.
+    """
+    if days < 8:
+        raise ValueError("at least eight days are required for a seven-day sequence history")
+    initialize()
+    source = SourceClient()
+    counts: dict[str, int] = defaultdict(int)
+    try:
+        end = datetime.now(UTC)
+        start = end - timedelta(days=days)
+        for basin in BASINS:
+            payload, retrieved = await source.json(
+                f"{BASE_URL}/collections/continuous/items",
+                {
+                    "monitoring_location_id": f"USGS-{basin.usgs_id}",
+                    "parameter_code": "00065",
+                    "datetime": f"{start.isoformat()}/{end.isoformat()}",
+                    "f": "json",
+                    "limit": 10_000,
+                },
+            )
+            archived = archive_payload(
+                "usgs",
+                f"live-history/{basin.usgs_id}/00065/{start:%Y%m%d}",
+                payload,
+                retrieved_at=retrieved,
+                metadata={"start": start.isoformat(), "end": end.isoformat()},
+            )
+            observations = USGSClient.parse(payload, basin.usgs_id, "00065", retrieved)
+            counts["observations"] += persist_observations(
+                observations, {"archive_hash": archived.content_hash}
+            )
+            counts["payloads"] += int(archived.created)
+        return dict(counts)
+    finally:
+        await source.close()
+
+
 async def backfill_usgs(start: date, end: date, concurrency: int = 4) -> dict[str, int]:
     initialize()
     source = SourceClient()
