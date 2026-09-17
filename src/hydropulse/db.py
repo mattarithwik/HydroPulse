@@ -129,10 +129,17 @@ def session_scope() -> Iterator[Session]:
 
 class Repository:
     def observations(
-        self, gauge_id: str, start: datetime | None = None, limit: int = 1000
+        self,
+        gauge_id: str,
+        start: datetime | None = None,
+        limit: int = 1000,
+        parameter_code: str = "00065",
     ) -> list[Observation]:
         with Session(engine) as session:
-            query = select(ObservationRow).where(ObservationRow.gauge_id == gauge_id)
+            query = select(ObservationRow).where(
+                ObservationRow.gauge_id == gauge_id,
+                ObservationRow.parameter_code == parameter_code,
+            )
             if start:
                 query = query.where(ObservationRow.event_time >= start)
             rows = session.scalars(

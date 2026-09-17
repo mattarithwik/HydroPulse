@@ -3,7 +3,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from hydropulse.domain import BASINS, Freshness, Observation
-from hydropulse.forecasting import PersistenceForecaster, StaleObservationError
+from hydropulse.forecasting import (
+    PersistenceForecaster,
+    RidgeStageForecaster,
+    StaleObservationError,
+)
 
 
 def observation(at, value=5.0):
@@ -51,3 +55,22 @@ def test_forecast_is_suppressed_after_120_minutes():
     now = datetime(2026, 1, 1, tzinfo=UTC)
     with pytest.raises(StaleObservationError):
         PersistenceForecaster().predict(BASINS[0], [observation(now - timedelta(minutes=121))], now)
+
+
+def test_ridge_forecaster_serves_calibrated_stage_without_fake_discharge(tmp_path):
+    model = tmp_path / "model.json"
+    model.write_text(
+        '{"model_type":"direct-ridge-stage-v1","target_id":"05464500",'
+        '"selected_variant":"target_only","feature_means":[5,0],"feature_scales":[1,1],'
+        '"intercept":[5,5,5,5,5],"weights":[[1,1,1,1,1],[0,0,0,0,0]],'
+        '"residual_quantile_offsets":{"0.05":[-1,-1,-1,-1,-1],'
+        '"0.1":[-0.8,-0.8,-0.8,-0.8,-0.8],"0.25":[-0.5,-0.5,-0.5,-0.5,-0.5],'
+        '"0.5":[0,0,0,0,0],"0.75":[0.5,0.5,0.5,0.5,0.5],'
+        '"0.9":[0.8,0.8,0.8,0.8,0.8],"0.95":[1,1,1,1,1]}}'
+    )
+    now = datetime(2026, 1, 1, 12, tzinfo=UTC)
+    history = [observation(now - timedelta(hours=1), 4), observation(now, 5)]
+    result = RidgeStageForecaster(model).predict(BASINS[0], history, now)
+    assert result.stage_model_version.startswith("direct-ridge-stage-v1")
+    assert result.discharge == ()
+    assert result.stage[0].quantiles["0.5"] == 5

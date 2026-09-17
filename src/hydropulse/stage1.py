@@ -111,20 +111,24 @@ async def collect_live() -> dict[str, int]:
                     )
             counts["nwps_payloads"] += int(metadata_archive.created) + 1
             for parameter in ("00065", "00060"):
+                window_end = datetime.now(UTC)
+                window_start = window_end - timedelta(hours=6)
                 payload, retrieved = await source.json(
-                    f"{BASE_URL}/collections/latest-continuous/items",
+                    f"{BASE_URL}/collections/continuous/items",
                     {
                         "monitoring_location_id": f"USGS-{basin.usgs_id}",
                         "parameter_code": parameter,
+                        "datetime": f"{window_start.isoformat()}/{window_end.isoformat()}",
                         "f": "json",
-                        "limit": 100,
+                        "limit": 1000,
                     },
                 )
                 archived = archive_payload(
                     "usgs",
-                    f"latest-continuous/{basin.usgs_id}/{parameter}",
+                    f"live-continuous/{basin.usgs_id}/{parameter}",
                     payload,
                     retrieved_at=retrieved,
+                    metadata={"start": window_start.isoformat(), "end": window_end.isoformat()},
                 )
                 observations = USGSClient.parse(payload, basin.usgs_id, parameter, retrieved)
                 counts["observations"] += persist_observations(

@@ -161,7 +161,7 @@ class Forecast(BaseModel):
     degradation_reasons: tuple[str, ...] = ()
     stage: tuple[QuantilePoint, ...]
     maximum_stage: tuple[QuantilePoint, ...]
-    discharge: tuple[QuantilePoint, ...]
+    discharge: tuple[QuantilePoint, ...] = ()
     threshold_crossings: tuple[ThresholdCrossing, ...] = ()
     horizon_model_mapping: dict[int, str]
 

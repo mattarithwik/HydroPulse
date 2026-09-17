@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from hydropulse.config import Settings, get_settings
 from hydropulse.db import EventRow, Repository, initialize, session_scope
 from hydropulse.domain import BASINS, Basin, Forecast, Observation
-from hydropulse.forecasting import PersistenceForecaster, StaleObservationError
+from hydropulse.forecasting import RidgeStageForecaster, StaleObservationError
 
 app = FastAPI(
     title="HydroPulse API", version="0.1.0", docs_url="/api/docs", openapi_url="/api/openapi.json"
@@ -104,7 +104,7 @@ def risk_events() -> dict:
 @app.get("/api/v1/models")
 def models() -> dict:
     return {
-        "champion": "persistence-damped-v1",
+        "champion": "direct-ridge-stage-v1",
         "stage": "available",
         "probability_products": "disabled",
     }
@@ -135,7 +135,8 @@ def issue_forecast(identifier: str, issued_at: datetime | None = None) -> Foreca
     issued_at = issued_at or datetime.now(UTC)
     history = repository.observations(basin.usgs_id, issued_at - timedelta(days=8), 5000)
     try:
-        result = PersistenceForecaster().predict(
+        model_path = get_settings().artifact_dir / "models" / f"stage-ridge-{basin.usgs_id}.json"
+        result = RidgeStageForecaster(model_path).predict(
             basin, history, issued_at, get_settings().ingestion_mode
         )
     except StaleObservationError as exc:

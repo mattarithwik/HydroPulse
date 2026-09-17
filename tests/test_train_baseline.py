@@ -13,9 +13,10 @@ def test_split_masks_leave_test_period_unused():
             datetime(2024, 1, 1, tzinfo=UTC).timestamp(),
         ]
     )
-    train, validation = split_masks(issued)
+    train, validation, calibration = split_masks(issued)
     assert train.tolist() == [True, False, False]
     assert validation.tolist() == [False, True, False]
+    assert calibration.tolist() == [False, False, False]
 
 
 def test_ridge_recovers_linear_relationship():
