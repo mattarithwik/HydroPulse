@@ -2,7 +2,7 @@
 PROFILE ?= direct
 COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
 
-.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features replay backup restore
+.PHONY: help bootstrap start stop status test lint seed stage1-live stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features train-baseline replay backup restore
 help:
 	@awk 'BEGIN {FS=":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 bootstrap: ## Check prerequisites and create local directories
@@ -39,6 +39,8 @@ freeze-manifest: ## Freeze the data split and qualified upstream lags before sta
 	PYTHONPATH=src .venv/bin/python -m hydropulse.evaluation_manifest --end 2026-09-13 --quality-report data/reports/quality-audit-2026-09-13.json --upstream-report data/reports/upstream-analysis-2026-09-13.json
 build-features: ## Build causal river-only training examples from the frozen manifest
 	PYTHONPATH=src .venv/bin/python -m hydropulse.features --manifest data/manifests/stage-model-2026-09-13.json --target $(TARGET)
+train-baseline: ## Train a direct stage-height baseline and score only validation years
+	PYTHONPATH=src .venv/bin/python -m hydropulse.train_baseline --target $(TARGET)
 replay: ## Create replay job (operator API once service is running)
 	@echo "POST /api/v1/operator/replay with the local operator token"
 backup: ## Create a local timestamped PostgreSQL backup
