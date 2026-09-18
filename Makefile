@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 PROFILE ?= direct
-COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),, )$(if $(filter streaming,$(PROFILE)),streaming,)
+comma := ,
+COMPOSE_PROFILES := monitoring$(if $(filter streaming,$(PROFILE)),$(comma)streaming)
 
 .PHONY: help bootstrap start stop status test lint seed stage1-live streaming-demo stage1-backfill stage1-audit quality-audit upstream-audit upstream-backfill upstream-analysis freeze-manifest build-features build-sequences train-baseline train-xgboost train-gru compare-models shadow-run shadow-challengers replay backup restore restore-test
 help:
