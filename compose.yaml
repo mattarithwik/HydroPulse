@@ -40,7 +40,7 @@ services:
     depends_on: [kafka]
     environment: {HYDROPULSE_DATABASE_URL: postgresql+psycopg://hydropulse:hydropulse@postgres/hydropulse, HYDROPULSE_KAFKA_BOOTSTRAP_SERVERS: kafka:9092, HYDROPULSE_SPARK_CHECKPOINT: /app/data/spark-checkpoints/observations}
     volumes: [./data:/app/data]
-    command: ["/opt/spark/bin/spark-submit", "--master", "local[2]", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6", "/app/src/hydropulse/spark_stream.py"]
+    command: ["/opt/spark/bin/spark-submit", "--master", "local[2]", "/app/src/hydropulse/spark_stream.py"]
     deploy: {resources: {limits: {memory: 1536M}}}
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.3.2
