@@ -1,18 +1,70 @@
 # HydroPulse
 
-HydroPulse is a localhost-only river-height forecasting platform for Cedar Rapids, Cartersville, and Goldsboro. It keeps gauge height as the primary target, trains discharge separately, and preserves source revisions. Numerical flood-chance products are disabled.
+HydroPulse is a local river-stage forecasting platform for three U.S. gauge locations:
+Cedar Rapids, Iowa; Cartersville, Virginia; and Goldsboro, North Carolina. It combines historical
+and live hydrologic data, leakage-resistant model evaluation, operational forecasting, and an
+optional Kafka/Spark ingestion path in one reproducible project.
 
-The project is closed as a research and engineering release. See
-[FINAL_FINDINGS.md](FINAL_FINDINGS.md) for the frozen conclusions, model results, and claim
-boundaries.
+The application forecasts gauge height rather than issuing flood warnings. Official flood stages
+are displayed as reference lines, while numerical flood-probability products remain disabled
+because the historical calibration data did not contain enough independent flood events to
+support them responsibly.
 
-The repository currently provides the runnable vertical slice and the contracts on which data qualification, weather extraction, neural training, and historical benchmarking build. Expensive backfills are deliberately not run during bootstrap: the implementation plan requires a measured seven-day transfer benchmark and a frozen audit manifest first.
+## Highlights
+
+- Live and historical USGS/NWPS ingestion with immutable source revisions
+- Chronological train, validation, calibration, and untouched-test boundaries
+- Ridge, XGBoost, and three-seed PyTorch GRU forecasting experiments
+- Forecast horizons of 1, 6, 24, 48, and 72 hours
+- FastAPI service and React/TypeScript dashboard
+- PostgreSQL storage with backup and isolated restore workflows
+- Optional Kafka and Spark Structured Streaming ingestion with idempotent persistence
+- Prometheus metrics and Grafana dashboards
+- 36 backend tests plus frontend production-build verification
+
+## Findings
+
+The target-only ridge model remains the public candidate because it produced the strongest
+one-hour validation accuracy for all three locations. GRU challengers improved several longer
+horizons and high-stage subsets, but none passed the complete promotion policy. The frozen final
+test was intentionally left unopened, so the repository makes no independent test-performance or
+production-readiness claim.
+
+Detailed results and limitations are documented in [FINAL_FINDINGS.md](FINAL_FINDINGS.md).
+
+## Architecture
+
+```text
+USGS / NWPS
+     |
+     v
+Collectors -----> PostgreSQL <----- Spark <----- Kafka
+                       |
+             Features and models
+                       |
+                  FastAPI API
+                       |
+               React dashboard
+```
+
+Direct PostgreSQL ingestion is the default. The streaming profile routes observation events
+through Kafka and Spark before writing through the same idempotent database transaction. Both
+paths share the feature, model, and serving contracts.
+
+See [docs/architecture.md](docs/architecture.md) for component boundaries and
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the full scientific protocol.
+
+## Prerequisites
+
+- Docker Desktop
+- Python 3.12 or newer
+- Node.js and npm for standalone frontend development
+- Up to 12 GB of memory allocated to Docker
+
+The project is designed for local execution. Services bind to localhost, and bulk datasets and
+model artifacts are intentionally excluded from Git.
 
 ## Quick start
-
-Prerequisites are Docker Desktop and Python 3.12 or newer. This host is approved to use Python 3.14. Docker should have no more than 12 GB allocated.
-
-On macOS systems where Documents is synchronized with iCloud Drive, bulk acquisition data is kept in `data.nosync/`. A local `data` symlink preserves application paths while the `.nosync` suffix prevents iCloud Drive from uploading the dataset.
 
 ```bash
 cp .env.example .env
@@ -20,49 +72,81 @@ make bootstrap
 make start
 ```
 
-Open [http://localhost:8080](http://localhost:8080). API documentation is at [http://localhost:8000/api/docs](http://localhost:8000/api/docs).
-If port 8080 is already occupied, start with `HYDROPULSE_UI_PORT=8081 make start` and open
-`http://localhost:8081` instead.
+Then open:
 
-For a local UI smoke test without external data, install the Python project, seed clearly marked synthetic observations, and issue a forecast. Synthetic rows are rejected from scientific reporting by their source and qualifier.
+- Dashboard: [http://localhost:8080](http://localhost:8080)
+- API documentation: [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
+
+If port 8080 is occupied:
+
+```bash
+HYDROPULSE_UI_PORT=8081 make start
+```
+
+## Local development
+
+Create the Python environment and install development dependencies:
 
 ```bash
 python3.12 -m venv .venv
-. .venv/bin/activate
+source .venv/bin/activate
 pip install -e '.[dev]'
-python -m hydropulse.cli seed-demo
-uvicorn hydropulse.api:app --reload
-curl -X POST -H 'Authorization: Bearer local-development-token' \
-  http://localhost:8000/api/v1/operator/forecast/cedar-ia
 ```
 
-Run the dashboard separately with `cd frontend && npm install && npm run dev`.
+Run the API and frontend independently:
 
-## Operating modes
+```bash
+uvicorn hydropulse.api:app --reload
+```
 
-- `make start` uses the direct PostgreSQL path.
-- `make start PROFILE=streaming` runs a single-node Kafka/Spark path: the collector publishes
-  immutable observation-revision events to Kafka and Spark Structured Streaming writes them through
-  the same idempotent PostgreSQL ingestion transaction. Run `make streaming-demo` to exercise it;
-  Spark uses five-minute micro-batches and checkpoints offsets under `data/spark-checkpoints/`.
-- `make status`, `make stop`, `make backup`, and `make restore DUMP=...` expose the lifecycle.
-- `make test` verifies scientific invariants and builds the TypeScript application.
-- `make stage1-live` archives current USGS/NWPS payloads; `make stage1-backfill` resumes
-  the bounded historical acquisition and `make stage1-audit` reports its completeness.
-- `make backup` writes a PostgreSQL backup under the iCloud-excluded `data/backups` directory;
-  verify one safely with `make restore-test DUMP=data/backups/<file>.dump`.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-Only localhost ports are published. There is no account system and no Redis or object-store emulator.
+For a UI smoke test without external data, seed explicitly marked synthetic observations:
 
-## Scientific guardrails
+```bash
+python -m hydropulse.cli seed-demo
+```
 
-- Forecast horizons are relative to issuance, never the newest sample.
-- At 91–120 minutes of observation age forecasts are degraded; beyond 120 minutes a new forecast is suppressed.
-- Window-maximum event labels use native observations. A crossing proves a positive label; missing coverage cannot prove a negative label.
-- 48/72-hour contracts identify the no-future-NWP model explicitly.
-- Official thresholds are displayed as height references. HydroPulse does not serve flood probabilities or issue flood warnings.
-- NWM comparisons are discharge-only MAE, RMSE, and signed bias; RFC comparison protocols remain distinct.
+Synthetic rows are excluded from scientific reporting through their source and qualifier fields.
 
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the complete qualification and acceptance protocol and [docs/architecture.md](docs/architecture.md) for code boundaries.
-Current completion gates and blockers are tracked in
+## Common commands
+
+| Command | Purpose |
+|---|---|
+| `make start` | Start the direct PostgreSQL application stack |
+| `make start PROFILE=streaming` | Start the Kafka/Spark ingestion profile |
+| `make status` | Show service and resource status |
+| `make stop` | Stop services without deleting durable data |
+| `make test` | Run backend tests and build the frontend |
+| `make lint` | Run Python lint checks |
+| `make stage1-live` | Archive current USGS and NWPS payloads |
+| `make stage1-audit` | Generate the current data-quality audit |
+| `make streaming-demo` | Exercise Kafka-to-Spark-to-PostgreSQL ingestion |
+| `make backup` | Create a PostgreSQL backup |
+| `make restore-test DUMP=...` | Verify a backup in an isolated database |
+
+## Scientific safeguards
+
+- Forecast horizons are relative to issuance time, not the newest observation.
+- Forecasts are marked degraded when target observations are 91–120 minutes old and suppressed
+  beyond 120 minutes.
+- Window-maximum labels use native observations so short threshold crossings are not lost.
+- Missing coverage cannot prove a negative threshold event.
+- Normalization, percentile thresholds, and upstream lag selection use training data only.
+- The 2024-01-01 through 2026-09-13 test interval remains untouched.
+- Official thresholds are contextual references; HydroPulse does not issue warnings or calibrated
+  flood probabilities.
+
+## Data and generated artifacts
+
+Historical data, reports, model artifacts, backups, and runtime checkpoints are stored under the
+local `data` path and are excluded from version control. On macOS systems with iCloud-synchronized
+Documents, `make bootstrap` uses `data.nosync/` with a `data` symlink to avoid syncing large local
+datasets.
+
+Project status and explicit claim boundaries are recorded in
 [docs/completion-status.md](docs/completion-status.md).

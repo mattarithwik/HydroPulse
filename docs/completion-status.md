@@ -2,8 +2,8 @@
 
 Last verified: 2026-09-21.
 
-The project is closed as a research and engineering release. Open items below are documented
-claim boundaries, not unfinished requirements for this release. Final conclusions are published
+The implementation and research summary are complete. Open items below are documented claim
+boundaries, not claims made by the current project. Final conclusions are recorded
 in [../FINAL_FINDINGS.md](../FINAL_FINDINGS.md).
 
 ## Working locally
@@ -19,13 +19,13 @@ in [../FINAL_FINDINGS.md](../FINAL_FINDINGS.md).
   probability claims.
 - Prometheus collection, bounded Docker resources, PostgreSQL backup, and isolated restore test.
 
-## Claims not made by this release
+## Claims not made by this project
 
 1. **Seven elapsed shadow days.** Complete six-model shadow records exist on four calendar days;
    September 20 was missed while Docker was offline. The planned seven-day continuity trial was
-   ended early when the project was closed, so no production promotion claim is made.
+   ended early when the project was wrapped up, so no production promotion claim is made.
 2. **Independent final test.** The 2024-01-01 through 2026-09-13 test remains unopened.
-   It is opened once, only after the research release and model choice are frozen.
+   It is opened once, only after the research summary and model choice are frozen.
 3. **Weather qualification.** AORC/MRMS/HRRR adapters remain deliberately disabled until basin
    masks, object versions, source-era availability, and a bounded transfer benchmark are frozen.
    No weather-enhanced skill claim is currently possible.

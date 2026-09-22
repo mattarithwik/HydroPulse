@@ -1,7 +1,9 @@
 # HydroPulse final findings
 
-Release status: **research and engineering release complete**  
-Evidence frozen: **2026-09-21**  
+Project status: **implementation and research summary complete**
+
+Evidence frozen: **2026-09-21**
+
 Historical archive cutoff: **2026-09-13**
 
 ## Executive conclusion
@@ -72,11 +74,11 @@ headline-horizon regression.
 
 ## Claim boundary
 
-This release demonstrates a working local forecasting system and reports frozen development
+This project demonstrates a working local forecasting system and reports frozen development
 results. It does **not** claim production readiness, calibrated flood probabilities, superiority
 to official RFC/NWM forecasts, weather-enhanced skill, a completed seven-day soak, or independent
 final-test performance. Those claims require new, explicitly scoped work; they are not hidden
-requirements for this closed release.
+requirements for the current project scope.
 
 ## Reproduction
 
