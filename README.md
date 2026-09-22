@@ -2,6 +2,10 @@
 
 HydroPulse is a localhost-only river-height forecasting platform for Cedar Rapids, Cartersville, and Goldsboro. It keeps gauge height as the primary target, trains discharge separately, and preserves source revisions. Numerical flood-chance products are disabled.
 
+The project is closed as a research and engineering release. See
+[FINAL_FINDINGS.md](FINAL_FINDINGS.md) for the frozen conclusions, model results, and claim
+boundaries.
+
 The repository currently provides the runnable vertical slice and the contracts on which data qualification, weather extraction, neural training, and historical benchmarking build. Expensive backfills are deliberately not run during bootstrap: the implementation plan requires a measured seven-day transfer benchmark and a frozen audit manifest first.
 
 ## Quick start
